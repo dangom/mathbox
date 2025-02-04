@@ -138,19 +138,21 @@
         data: positions,
         width: NUM_PARTICLES,
         items: 1,
+        history: 8,
         channels: 3,
       });
 
-      // Draw particles
-      view.point({
-        points: "#positions",
-        color: 0xffffff,
-        size: 5,
-        zIndex: 1, // Ensure particles are drawn on top
-      });
+     // Draw particles
+     view.point({
+       points: "#positions",
+       color: 0xffffff,
+       opacity: 0.5,
+       size: 2,
+       zIndex: 1, // Ensure particles are drawn on top
+     });
 
-      // Animation loop
-      three.on("update", () => {
+     // Animation loop
+     three.on("update", () => {
         // Update each particle position
         for (let i = 0; i < NUM_PARTICLES; i++) {
           // Random walk
