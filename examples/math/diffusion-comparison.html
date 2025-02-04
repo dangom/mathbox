@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>MathBox - Brownian Motion</title>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/three@0.137.0/build/three.min.js"
+    ></script>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/three@0.137.0/examples/js/controls/OrbitControls.js"
+    ></script>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/mathbox@latest/build/bundle/mathbox.js"
+    ></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/mathbox@latest/build/mathbox.css"
+    />
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1" />
+  </head>
+  <body>
+    <script>
+      // Initialize MathBox
+      const mathbox = MathBox.mathBox({
+        plugins: ["core", "controls", "cursor"],
+        controls: {
+          klass: THREE.OrbitControls,
+        },
+      });
+      const three = mathbox.three;
+
+      // Set up camera and background
+      three.camera.position.set(2, 2, 2);
+      three.renderer.setClearColor(new THREE.Color(0x204060), 1.0);
+
+      // Constants
+     const STEP_SIZE_1 = 0.005; // Original diffusion rate
+     const STEP_SIZE_2 = 0.005; // More constrained diffusion
+     const BOX_SIZE = 1;
+     const SPHERE_RADIUS_1 = 0.8; // Original sphere size
+     const SPHERE_RADIUS_2 = 0.4; // Smaller sphere
+     const NUM_PARTICLES_1 = Math.round(1000 * 4/3 * Math.PI * SPHERE_RADIUS_1 ** 3);
+     const NUM_PARTICLES_2 = Math.round(3000 * 4/3 * Math.PI * SPHERE_RADIUS_2 ** 3);
+
+
+     const OFFSET = 1.5;
+
+     // Create two sets of particle positions
+     let positions1 = new Array(NUM_PARTICLES_1 * 3);
+      let positions2 = new Array(NUM_PARTICLES_2 * 3);
+
+      // Initialize random positions for both sets
+      for (let i = 0; i < NUM_PARTICLES_1; i++) {
+        // First set (original size)
+        const r1 = SPHERE_RADIUS_1 * Math.cbrt(Math.random());
+        const theta1 = Math.random() * 2 * Math.PI;
+        const phi1 = Math.acos(2 * Math.random() - 1);
+
+        positions1[i * 3] = r1 * Math.sin(phi1) * Math.cos(theta1);
+        positions1[i * 3 + 1] = r1 * Math.sin(phi1) * Math.sin(theta1);
+        positions1[i * 3 + 2] = r1 * Math.cos(phi1);
+
+        // Second set (smaller size)
+        const r2 = SPHERE_RADIUS_2 * Math.cbrt(Math.random());
+        const theta2 = Math.random() * 2 * Math.PI;
+        const phi2 = Math.acos(2 * Math.random() - 1);
+
+        positions2[i * 3] = r2 * Math.sin(phi2) * Math.cos(theta2) + OFFSET; // Offset by 2 units
+        positions2[i * 3 + 1] = r2 * Math.sin(phi2) * Math.sin(theta2);
+        positions2[i * 3 + 2] = r2 * Math.cos(phi2);
+      }
+
+      // Create view with wider range to accommodate both systems
+      const view = mathbox
+        .unit({
+          scale: 720,
+        })
+        .cartesian({
+          range: [
+            [- 2* BOX_SIZE, 2 * BOX_SIZE], // Extended range to fit both systems
+            [-BOX_SIZE, BOX_SIZE],
+            [-BOX_SIZE, BOX_SIZE],
+          ],
+          scale: [3, 1.5, 1.5],
+        });
+
+      // Add coordinate grids for both systems
+      // First grid (left)
+      view.grid({
+        width: 1,
+        opacity: 0.2,
+        axes: [1, 2],
+      });
+      view.grid({
+        width: 1,
+        opacity: 0.2,
+        axes: [2, 3],
+      });
+      view.grid({
+        width: 1,
+        opacity: 0.2,
+        axes: [1, 3],
+      });
+
+      // Second grid (right)
+      view.grid({
+        width: 1,
+        opacity: 0.2,
+        axes: [1, 2],
+        origin: [OFFSET, 0, 0], // Offset origin for second grid
+      });
+      view.grid({
+        width: 1,
+        opacity: 0.2,
+        axes: [2, 3],
+        origin: [OFFSET, 0, 0],
+      });
+      view.grid({
+        width: 1,
+        opacity: 0.2,
+        axes: [1, 3],
+        origin: [OFFSET, 0, 0],
+      });
+
+      // Create sphere data for both spheres
+      // First sphere (left)
+      view.area({
+        id: "sphereData1",
+        width: 64,
+        height: 64,
+        axes: [1, 3],
+        expr: function (emit, x, y, i, j) {
+          const u = (i / 63) * Math.PI * 2;
+          const v = (j / 63) * Math.PI;
+          emit(
+            SPHERE_RADIUS_1 * Math.sin(v) * Math.cos(u),
+            SPHERE_RADIUS_1 * Math.cos(v),
+            SPHERE_RADIUS_1 * Math.sin(v) * Math.sin(u),
+          );
+        },
+        channels: 3,
+      });
+
+      // Second sphere (right)
+      view.area({
+        id: "sphereData2",
+        width: 64,
+        height: 64,
+        axes: [1, 3],
+        expr: function (emit, x, y, i, j) {
+          const u = (i / 63) * Math.PI * 2;
+          const v = (j / 63) * Math.PI;
+          emit(
+            SPHERE_RADIUS_2 * Math.sin(v) * Math.cos(u) + OFFSET, // Offset by 2 units
+            SPHERE_RADIUS_2 * Math.cos(v),
+            SPHERE_RADIUS_2 * Math.sin(v) * Math.sin(u),
+          );
+        },
+        channels: 3,
+      });
+
+      // Draw both spheres
+      view.surface({
+        points: "#sphereData1",
+        color: 0xff4040,
+        opacity: 0.5,
+        fill: false,
+        lineX: true,
+        lineY: true,
+        shaded: false,
+        width: 1,
+      });
+
+      view.surface({
+        points: "#sphereData2",
+        color: 0xff4040,
+        opacity: 0.5,
+        fill: false,
+        lineX: true,
+        lineY: true,
+        shaded: false,
+        width: 1,
+      });
+
+      // Create data sources for both particle sets
+      view.array({
+        id: "positions1",
+        data: positions1,
+        width: NUM_PARTICLES_1,
+        items: 1,
+        history: 64,
+        channels: 3,
+      });
+
+      view.array({
+        id: "positions2",
+        data: positions2,
+        width: NUM_PARTICLES_2,
+        items: 1,
+        history: 64,
+        channels: 3,
+      });
+
+      // Draw both sets of particles
+      view.point({
+        points: "#positions1",
+        color: 0xffffff,
+        opacity: 0.5,
+        size: 2,
+        zIndex: 1,
+      });
+
+      view.point({
+        points: "#positions2",
+        color: 0xffffff,
+        opacity: 0.5,
+        size: 2,
+        zIndex: 1,
+      });
+
+      // Animation loop
+      three.on("update", () => {
+        // Update first set of particles
+        for (let i = 0; i < NUM_PARTICLES_1; i++) {
+          positions1[i * 3] += (Math.random() - 0.5) * STEP_SIZE_1;
+          positions1[i * 3 + 1] += (Math.random() - 0.5) * STEP_SIZE_1;
+          positions1[i * 3 + 2] += (Math.random() - 0.5) * STEP_SIZE_1;
+
+          const x1 = positions1[i * 3];
+          const y1 = positions1[i * 3 + 1];
+          const z1 = positions1[i * 3 + 2];
+          const distance1 = Math.sqrt(x1 * x1 + y1 * y1 + z1 * z1);
+
+          if (distance1 > SPHERE_RADIUS_1) {
+            const scale1 = SPHERE_RADIUS_1 / distance1;
+            positions1[i * 3] *= scale1;
+            positions1[i * 3 + 1] *= scale1;
+            positions1[i * 3 + 2] *= scale1;
+          }
+        }
+
+        // Update second set of particles
+        for (let i = 0; i < NUM_PARTICLES_2; i++) {
+          positions2[i * 3] += (Math.random() - 0.5) * STEP_SIZE_2;
+          positions2[i * 3 + 1] += (Math.random() - 0.5) * STEP_SIZE_2;
+          positions2[i * 3 + 2] += (Math.random() - 0.5) * STEP_SIZE_2;
+
+          const x2 = positions2[i * 3] - OFFSET; // Adjust for offset
+          const y2 = positions2[i * 3 + 1];
+          const z2 = positions2[i * 3 + 2];
+          const distance2 = Math.sqrt(x2 * x2 + y2 * y2 + z2 * z2);
+
+          if (distance2 > SPHERE_RADIUS_2) {
+            const scale2 = SPHERE_RADIUS_2 / distance2;
+            positions2[i * 3] = x2 * scale2 + OFFSET; // Add offset back
+            positions2[i * 3 + 1] = y2 * scale2;
+            positions2[i * 3 + 2] = z2 * scale2;
+          }
+        }
+
+        // Update both datasets
+        mathbox.select("#positions1").set("data", positions1);
+        mathbox.select("#positions2").set("data", positions2);
+      });
+    </script>
+  </body>
+</html>
