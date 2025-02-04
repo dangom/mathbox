@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>MathBox - Brownian Motion</title>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/three@0.137.0/build/three.min.js"
+    ></script>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/three@0.137.0/examples/js/controls/OrbitControls.js"
+    ></script>
+    <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/mathbox@latest/build/bundle/mathbox.js"
+    ></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/mathbox@latest/build/mathbox.css"
+    />
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1" />
+  </head>
+  <body>
+    <script>
+      // Initialize MathBox
+      const mathbox = MathBox.mathBox({
+        plugins: ["core", "controls", "cursor"],
+        controls: {
+          klass: THREE.OrbitControls,
+        },
+      });
+      const three = mathbox.three;
+
+      // Set up camera and background
+      three.camera.position.set(2, 2, 2);
+      three.renderer.setClearColor(new THREE.Color(0x204060), 1.0);
+
+      // Constants
+      const NUM_PARTICLES = 5000;
+      const STEP_SIZE = 0.01;
+      const BOX_SIZE = 1;
+      const SPHERE_RADIUS = 0.8; // Radius of the central sphere
+
+      // Array to store particle positions
+      let positions = new Array(NUM_PARTICLES * 3);
+
+      // Initialize random positions
+      for (let i = 0; i < NUM_PARTICLES; i++) {
+        // Random spherical coordinates
+        const r = SPHERE_RADIUS * Math.cbrt(Math.random()); // Random radius within sphere
+        const theta = Math.random() * 2 * Math.PI; // Random angle in XZ plane
+        const phi = Math.acos(2 * Math.random() - 1); // Random angle from Y axis
+
+        // Convert to Cartesian coordinates
+        positions[i * 3] = r * Math.sin(phi) * Math.cos(theta); // x
+        positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta); // y
+        positions[i * 3 + 2] = r * Math.cos(phi); // z
+      }
+      // Create view
+      const view = mathbox
+        .unit({
+          scale: 720,
+        })
+        .cartesian({
+          range: [
+            [-BOX_SIZE, BOX_SIZE],
+            [-BOX_SIZE, BOX_SIZE],
+            [-BOX_SIZE, BOX_SIZE],
+          ],
+          scale: [1.5, 1.5, 1.5],
+        });
+
+      // Add coordinate grid
+      view.grid({
+        width: 2,
+        opacity: 0.2,
+        axes: [1, 2],
+        width: 1,
+      });
+      view.grid({
+        width: 2,
+        opacity: 0.2,
+        axes: [2, 3],
+        width: 1,
+      });
+      view.grid({
+        width: 2,
+        opacity: 0.2,
+        axes: [1, 3],
+        width: 1,
+      });
+
+      // Create sphere data
+      view.area({
+        id: "sphereData",
+        width: 64,
+        height: 64,
+        axes: [1, 3],
+        expr: function (emit, x, y, i, j) {
+          const u = (i / 63) * Math.PI * 2;
+          const v = (j / 63) * Math.PI;
+
+          // Spherical to Cartesian coordinates
+          const xx = SPHERE_RADIUS * Math.sin(v) * Math.cos(u);
+          const yy = SPHERE_RADIUS * Math.sin(v) * Math.sin(u);
+          const zz = SPHERE_RADIUS * Math.cos(v);
+
+          emit(xx, zz, yy);
+        },
+        channels: 3,
+      });
+
+      // Draw sphere
+      /* view.surface({
+       *   shaded: true,
+       *   color: 0xFF4040,    // Red color
+       *   opacity: 0.1,       // Slight transparency
+       *   points: '#sphereData',
+       *   fill: true,
+       *   lineX: false,
+       *   lineY: false,
+       * }); */
+      view.surface({
+        points: "#sphereData",
+        color: 0xff4040, // Red color
+        opacity: 0.5, // Full opacity for lines
+        fill: false, // No face filling
+        lineX: true, // Show lines along one axis
+        lineY: true, // Show lines along other axis
+        shaded: false, // No shading needed for wireframe
+        width: 1, // Line width
+      });
+
+      // Create data source for particles
+      view.array({
+        id: "positions",
+        data: positions,
+        width: NUM_PARTICLES,
+        items: 1,
+        channels: 3,
+      });
+
+      // Draw particles
+      view.point({
+        points: "#positions",
+        color: 0xffffff,
+        size: 5,
+        zIndex: 1, // Ensure particles are drawn on top
+      });
+
+      // Animation loop
+      three.on("update", () => {
+        // Update each particle position
+        for (let i = 0; i < NUM_PARTICLES; i++) {
+          // Random walk
+          positions[i * 3] += (Math.random() - 0.5) * STEP_SIZE; // x
+          positions[i * 3 + 1] += (Math.random() - 0.5) * STEP_SIZE; // y
+          positions[i * 3 + 2] += (Math.random() - 0.5) * STEP_SIZE; // z
+
+          // Calculate distance from center
+          const x = positions[i * 3];
+          const y = positions[i * 3 + 1];
+          const z = positions[i * 3 + 2];
+          const distance = Math.sqrt(x * x + y * y + z * z);
+
+          // If outside sphere, project back onto sphere surface
+          if (distance > SPHERE_RADIUS) {
+            const scale = SPHERE_RADIUS / distance;
+            positions[i * 3] *= scale;
+            positions[i * 3 + 1] *= scale;
+            positions[i * 3 + 2] *= scale;
+          }
+        }
+
+        // Update the data in mathbox
+        mathbox.select("#positions").set("data", positions);
+      });
+    </script>
+  </body>
+</html>
